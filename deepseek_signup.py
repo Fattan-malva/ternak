@@ -160,7 +160,7 @@ class CDPPage:
             raise RuntimeError(text)
         return res.get("result", {}).get("value")
 
-    def type_text(self, text, min_delay=0.045, max_delay=0.15):
+    def type_text(self, text, min_delay=0.012, max_delay=0.05):
         for ch in text:
             if ch == "\n":
                 self.press_enter()
@@ -356,7 +356,7 @@ class DeepSeekSignup:
             except Exception:
                 pass
         self._wait_ready(page, timeout=timeout)
-        self._pause(1.2, 2.4)
+        self._pause(0.4, 0.9)
 
     def _wait_ready(self, page, timeout=45):
         deadline = time.time() + timeout
@@ -469,7 +469,7 @@ class DeepSeekSignup:
         for _ in range(self._rng.randint(1, 2)):
             page.scroll(self._rng.randint(80, 320))
             time.sleep(self._rng.uniform(0.25, 0.8))
-        self._pause(0.8, 1.6)
+        self._pause(0.2, 0.5)
 
     # ---------------------------------------------------------------- launch
     def launch_cdp(self):
@@ -545,24 +545,24 @@ class DeepSeekSignup:
             raise RuntimeError("Input email tidak ditemukan di halaman signup.")
         self._human_mouse_to(page, email_rect["x"], email_rect["y"])
         page.click(email_rect["x"], email_rect["y"])
-        self._pause(0.2, 0.5)
+        self._pause(0.05, 0.15)
         page.type_text(email)
-        self._pause(0.5, 1.2)
+        self._pause(0.1, 0.3)
 
         pw_rects = self._find_all_rects(page, 'input[type="password"]')
         if not pw_rects:
             raise RuntimeError("Input password tidak ditemukan di halaman signup.")
         self._human_mouse_to(page, pw_rects[0]["x"], pw_rects[0]["y"])
         page.click(pw_rects[0]["x"], pw_rects[0]["y"])
-        self._pause(0.2, 0.5)
+        self._pause(0.05, 0.15)
         page.type_text(password)
         if len(pw_rects) > 1:
-            self._pause(0.4, 0.9)
+            self._pause(0.1, 0.25)
             self._human_mouse_to(page, pw_rects[1]["x"], pw_rects[1]["y"])
             page.click(pw_rects[1]["x"], pw_rects[1]["y"])
-            self._pause(0.2, 0.5)
+            self._pause(0.05, 0.15)
             page.type_text(password)
-        self._pause(0.6, 1.4)
+        self._pause(0.2, 0.5)
 
     # ---------------------------------------------------------------- recaptcha
     def recaptcha_present(self, page):
@@ -663,8 +663,8 @@ class DeepSeekSignup:
                 r = boxes[index]
                 self._human_mouse_to(page, r["x"], r["y"])
                 page.click(r["x"], r["y"])
-                page.type_text(digit, min_delay=0.06, max_delay=0.18)
-                time.sleep(self._rng.uniform(0.07, 0.18))
+                page.type_text(digit, min_delay=0.02, max_delay=0.06)
+                time.sleep(self._rng.uniform(0.02, 0.06))
         else:
             single = self._find_rect(page, [
                 ".ds-verify-code-form-item__verify-code-input",
@@ -679,7 +679,16 @@ class DeepSeekSignup:
             self._pause(0.2, 0.5)
             page.type_text(digits)
 
-        self._pause(0.5, 1.2)
+        self._pause(0.8, 1.5)
+
+        # DeepSeek sering auto-submit setelah 6 digit; tunggu dulu sebelum klik,
+        # supaya tidak menekan tombol yang salah / mengirim ulang OTP.
+        time.sleep(2)
+        try:
+            if self.page_error_text(page):
+                return
+        except Exception:
+            pass
 
         btn = self._find_button_rect(page, SUBMIT_PATTERN)
         if btn:
@@ -689,6 +698,21 @@ class DeepSeekSignup:
             page.press_enter()
 
     # ---------------------------------------------------------------- token
+    def page_error_text(self, page):
+        """Ambil teks error yang terlihat di halaman (jika ada)."""
+        try:
+            txt = page.evaluate("document.body ? document.body.innerText : ''") or ''
+        except Exception:
+            return ''
+        low = txt.lower()
+        for kw in ("registration failed", "try again", "invalid", "expired", "error", "gagal", "b11"):
+            if kw in low:
+                # ambil baris yang mengandung keyword
+                for line in txt.splitlines():
+                    if kw in line.lower():
+                        return line.strip()[:200]
+        return ''
+
     def read_token(self, page):
         try:
             token = page.evaluate(

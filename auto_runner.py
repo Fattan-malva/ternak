@@ -72,25 +72,55 @@ def start_job():
     return job_id, None
 
 
+def _sanitize(job):
+    if job is None:
+        return None
+    return {k: v for k, v in job.items() if not k.startswith("_")}
+
 def current_job():
     with _LOCK:
         for j in JOBS.values():
             if j["status"] == "running":
-                return j
+                return _sanitize(j)
         return None
 
+
+
+def refresh_otp_now(job_id=None):
+    """Lakukan satu pengecekan OTP segera untuk job yang sedang berjalan."""
+    with _LOCK:
+        if job_id is None:
+            job = None
+            for j in JOBS.values():
+                if j["status"] == "running":
+                    job = j
+                    break
+        else:
+            job = JOBS.get(job_id)
+        if not job:
+            return None, "Tidak ada job berjalan"
+        vm = job.get("_vm")
+        if vm is None:
+            return None, "VM belum siap"
+    otp = vm.check_otp_once()
+    if otp:
+        with _LOCK:
+            job["otp"] = otp
+        _log(job, f"OTP (manual refresh) diterima: {otp}")
+    return otp, None
 
 def latest_job():
     with _LOCK:
         if _LAST_JOB is not None:
-            return _LAST_JOB
+            return _sanitize(_LAST_JOB)
         if JOBS:
-            return list(JOBS.values())[-1]
+            return _sanitize(list(JOBS.values())[-1])
         return None
 
 
 def _run(job):
     vm = VoltMail()
+    _set(job, _vm=vm)
     signup = None
     page = None
     try:
@@ -127,6 +157,7 @@ def _run(job):
         _log(job, "Silakan klik 'Send Code' / selesaikan reCAPTCHA di Chrome.")
         _log(job, ">>> Bot menunggu OTP (tidak auto-klik Send Code). <<<")
 
+        vm.mark_start()
         _set(job, step="otp")
         _log(job, f"Menunggu OTP (maks {config.OTP_TIMEOUT}s)...")
         deadline = time.time() + config.OTP_TIMEOUT
@@ -139,7 +170,7 @@ def _run(job):
             if time.time() - last_hb > 20:
                 _log(job, "Masih menunggu OTP dari VoltMail...")
                 last_hb = time.time()
-            time.sleep(2)
+            time.sleep(1)
         if not otp:
             raise RuntimeError("OTP tidak diterima")
         _set(job, otp=otp)
@@ -147,6 +178,13 @@ def _run(job):
         _log(job, "Mengirim OTP otomatis...")
         signup.submit_otp(page, otp)
         _log(job, "OTP dikirim, menunggu registrasi...")
+        time.sleep(3)
+        try:
+            err = signup.page_error_text(page)
+            if err:
+                _log(job, f"Peringatan halaman: {err}")
+        except Exception:
+            pass
 
         _set(job, step="token")
         _log(job, f"Menunggu userToken (maks {config.TOKEN_TIMEOUT}s)...")

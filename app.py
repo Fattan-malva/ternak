@@ -378,6 +378,20 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(500, {"error": str(error), "trace": traceback.format_exc()})
             return
 
+        if path == "/api/refresh-otp":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                payload = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                job_id = payload.get("job_id")
+                otp, error = auto_runner.refresh_otp_now(job_id)
+                if error:
+                    self.send_json(400, {"ok": False, "error": error})
+                    return
+                self.send_json(200, {"ok": True, "otp": otp})
+            except Exception as error:
+                self.send_json(500, {"error": str(error), "trace": traceback.format_exc()})
+            return
+
         if path == "/api/open-signup":
             try:
                 cfg = load_config()

@@ -68,20 +68,49 @@ def extract_otp(text):
     return None
 
 
+def _msg_time(msg):
+    """Best-effort epoch (float) dari berbagai field timestamp VoltMail. None jika tidak ada."""
+    if not isinstance(msg, dict):
+        return None
+    for key in ("createdAt", "created_at", "receivedAt", "received_at", "date", "timestamp", "time", "updatedAt", "updated_at"):
+        v = msg.get(key)
+        if v is None:
+            continue
+        if isinstance(v, (int, float)):
+            # miliseconds -> seconds
+            return v / 1000.0 if v > 1e12 else float(v)
+        if isinstance(v, str):
+            v = v.strip()
+            try:
+                # ISO 8601
+                from datetime import datetime
+                # handle trailing Z
+                txt = v.replace("Z", "+00:00")
+                return datetime.fromisoformat(txt).timestamp()
+            except Exception:
+                try:
+                    return float(v)
+                except Exception:
+                    continue
+    return None
+
+
+
 class VoltMail:
     def __init__(self):
         self.session = requests.Session()
         self.token = None
         self.address = None
         self._seen_ids = set()
+        self._started_at = None
 
     # ---------------------------------------------------------------- inbox
     def create_inbox(self, domain=None):
         if domain is None:
-            doms = self.session.get(f"{BASE}/api/domains", timeout=30).json()["domains"]
+            doms = self.session.get(f"{BASE}/api/domains", timeout=10).json()["domains"]
             domain = doms[0]["domain"]
 
-        r = self.session.post(f"{BASE}/api/generate", json={"domain": domain}, timeout=30)
+        r = self.session.post(f"{BASE}/api/generate", json={"domain": domain}, timeout=10)
         if r.status_code == 429:
             time.sleep(int(r.headers.get("Retry-After", 60)))
             return self.create_inbox(domain)
@@ -90,18 +119,19 @@ class VoltMail:
         self.address = data["account"]["address"]
         self.token = data["token"]
         self._seen_ids = set()
+        self._started_at = None
         return self.address, self.token, data.get("resumeCode", "")
 
     def _headers(self):
         return {"Authorization": f"Bearer {self.token}"}
 
     # ---------------------------------------------------------------- fetch
-    def _messages(self, timeout=20):
+    def _messages(self, timeout=8):
         r = self.session.get(f"{BASE}/api/messages", headers=self._headers(), timeout=timeout)
         r.raise_for_status()
         return r.json().get("messages", []) or []
 
-    def _message_text(self, mid, timeout=20):
+    def _message_text(self, mid, timeout=8):
         r = self.session.get(f"{BASE}/api/messages/{mid}", headers=self._headers(), timeout=timeout)
         r.raise_for_status()
         msg = r.json().get("message", {}) or {}
@@ -111,9 +141,23 @@ class VoltMail:
         return _html_to_text(msg.get("html") or "")
 
     # ---------------------------------------------------------------- otp
-    def check_otp_once(self):
-        """Satu putaran polling: periksa semua pesan, TERBARU dulu.
+    def mark_start(self):
+        """Tandai waktu mulai menunggu OTP (untuk filter pesan lama)."""
+        import time
+        self._started_at = time.time()
+        self._seen_ids = set()
 
+    def check_otp_once(self):
+        """Satu putaran polling: ambil OTP dari pesan TERBARU.
+
+        Strategi:
+        - Ambil semua pesan.
+        - Abaikan pesan yang sudah terbukti bukan OTP (_seen_ids).
+        - Abaikan pesan dengan timestamp < _started_at (pesan lama/stale),
+          supaya OTP lama tidak disalahgunakan.
+        - Urutkan kandidat berdasarkan timestamp (terbaru dulu); jika tidak
+          ada timestamp, pertahankan urutan API.
+        - Kembalikan OTP dari pesan terbaru yang mengandung OTP.
         Return kode OTP (string) atau None.
         """
         try:
@@ -121,26 +165,41 @@ class VoltMail:
         except Exception:
             return None
 
-        # Daftar pesan VoltMail: terlama -> terbaru, jadi iterasi dibalik.
-        for msg in reversed(msgs):
+        # Jika API mengembalikan terbaru->terlama, balikkan agar terlama->terbaru
+        # lalu kita sort eksplisit. Kita tidak berasumsi; sort by timestamp.
+        candidates = []
+        for msg in msgs:
             mid = msg.get("id")
             if mid is None:
                 continue
             if mid in self._seen_ids:
                 continue
+            t = _msg_time(msg)
+            if self._started_at is not None and t is not None and t < self._started_at - 5:
+                # pesan lama (stale) -> tandai seen supaya tidak di-fetch ulang
+                self._seen_ids.add(mid)
+                continue
+            candidates.append((t, mid, msg))
 
+        # Sort: timestamp desc; None timestamps dianggap paling lama (di akhir)
+        def key(x):
+            t = x[0]
+            return (0, -t) if t is not None else (1, 0)
+        candidates.sort(key=key)
+
+        for t, mid, msg in candidates:
             try:
                 text = self._message_text(mid)
             except Exception:
-                # Gagal sementara (network/server) -> JANGAN tandai seen,
-                # supaya pesan ini dicoba lagi pada polling berikutnya.
+                # Gagal sementara -> jangan tandai seen, coba lagi nanti.
                 continue
-
             otp = extract_otp(text)
+            print(f"  [VoltMail] msg id={mid} ts={t} -> otp={otp}")
+            print(f"  [VoltMail] text snippet: {text[:400].replace(chr(10),' ')}")
             if otp:
+                print(f"  [VoltMail] OTP dipilih: {otp}")
                 return otp
-
-            # Terbukti bukan OTP -> tandai supaya tidak di-fetch ulang.
+            # Terbukti bukan OTP
             self._seen_ids.add(mid)
 
         return None

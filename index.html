@@ -664,6 +664,7 @@
               <div class="input-line">
                 <input id="otp" type="text" readonly placeholder="Belum tersedia" autocomplete="off">
                 <button class="subtle" type="button" onclick="copyField('otp')">Salin</button>
+                <button class="subtle" type="button" id="btn-refresh-otp" onclick="refreshOtp()">Refresh OTP</button>
               </div>
             </div>
             <div class="field">
@@ -780,6 +781,27 @@
       const element = document.getElementById(id);
       if (element && value !== undefined && value !== null) {
         element.value = value;
+      }
+    }
+
+    async function refreshOtp() {
+      const button = document.getElementById('btn-refresh-otp');
+      if (button) button.disabled = true;
+      try {
+        const status = await api('/status');
+        const job = status.job;
+        const payload = job && job.id ? { job_id: job.id } : {};
+        const result = await api('/refresh-otp', 'POST', payload);
+        if (result.ok && result.otp) {
+          setField('otp', result.otp);
+          toast('OTP diperbarui', 'ok');
+        } else {
+          toast(result.error || 'OTP belum tersedia', 'err');
+        }
+      } catch (error) {
+        toast('Gagal refresh OTP', 'err');
+      } finally {
+        if (button) button.disabled = false;
       }
     }
 
