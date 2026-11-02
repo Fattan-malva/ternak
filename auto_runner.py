@@ -112,7 +112,19 @@ def _run(job):
         _set(job, step="form")
         _log(job, "Mengisi form email & password...")
         signup.fill_form(page, email, config.PASSWORD)
-        _log(job, "Form terisi. Silakan klik 'Send Code' / selesaikan reCAPTCHA di Chrome.")
+        _log(job, "Form terisi. Menyelesaikan reCAPTCHA (kalau muncul)...")
+
+        recaptcha_status = signup.solve_recaptcha_checkbox(page)
+        if recaptcha_status == "challenge":
+            _log(job, "reCAPTCHA challenge gambar muncul — selesaikan manual di Chrome.")
+            if not signup.wait_recaptcha_manual(page, timeout=180):
+                raise RuntimeError("reCAPTCHA challenge tidak diselesaikan")
+        elif recaptcha_status == "failed":
+            _log(job, "WARN: reCAPTCHA checkbox gagal. Coba lanjutkan manual di Chrome.")
+        else:
+            _log(job, f"reCAPTCHA status: {recaptcha_status}")
+
+        _log(job, "Silakan klik 'Send Code' / selesaikan reCAPTCHA di Chrome.")
         _log(job, ">>> Bot menunggu OTP (tidak auto-klik Send Code). <<<")
 
         _set(job, step="otp")

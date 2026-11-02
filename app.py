@@ -232,6 +232,7 @@ def start_chrome():
             f"--profile-directory={chrome_profile}",
             "--no-first-run",
             "--no-default-browser-check",
+            "--disable-blink-features=AutomationControlled",
             UI_URL,
         ]
         print(f"[Chrome] Menjalankan langsung: {chrome_exe}")
@@ -276,6 +277,21 @@ def start_chrome():
 # ---------------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
+
+class QuietThreadingHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer yang tidak memuntahkan traceback untuk
+    koneksi yang ditutup klien (WinError 10054 / ConnectionResetError),
+    sehingga terminal tetap bersih dan hanya menampilkan log bot.
+    """
+
+    def handle_error(self, request, client_address):
+        import sys
+        exc = sys.exc_info()[1]
+        # Abaikan: koneksi ditutup klien, koneksi di-reset, pipe putus.
+        if isinstance(exc, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
+
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -392,7 +408,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+        server = QuietThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     except OSError as error:
         print(f"Port {PORT} tidak bisa dipakai: {error}")
         print("Kemungkinan masih ada 'py app.py' lain yang berjalan.")
