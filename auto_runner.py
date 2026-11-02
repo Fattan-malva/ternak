@@ -131,11 +131,15 @@ def _run(job):
         _log(job, f"Menunggu OTP (maks {config.OTP_TIMEOUT}s)...")
         deadline = time.time() + config.OTP_TIMEOUT
         otp = None
+        last_hb = time.time()
         while time.time() < deadline:
             otp = vm.check_otp_once()
             if otp:
                 break
-            time.sleep(3)
+            if time.time() - last_hb > 20:
+                _log(job, "Masih menunggu OTP dari VoltMail...")
+                last_hb = time.time()
+            time.sleep(2)
         if not otp:
             raise RuntimeError("OTP tidak diterima")
         _set(job, otp=otp)
@@ -145,17 +149,33 @@ def _run(job):
         _log(job, "OTP dikirim, menunggu registrasi...")
 
         _set(job, step="token")
+        _log(job, f"Menunggu userToken (maks {config.TOKEN_TIMEOUT}s)...")
         deadline = time.time() + config.TOKEN_TIMEOUT
         token = ""
+        last_hb = time.time()
         while time.time() < deadline:
             token = signup.read_token(page)
             if token:
                 break
+            if time.time() - last_hb > 30:
+                _log(job, "Masih menunggu userToken muncul di localStorage...")
+                last_hb = time.time()
             time.sleep(1)
         if not token:
             raise RuntimeError("userToken tidak muncul")
         _set(job, token=token)
         _log(job, "userToken didapat!")
+
+        _log(job, "Logout dari DeepSeek & menutup tab...")
+        try:
+            signup.signout(page)
+        except Exception:
+            pass
+        try:
+            signup.close_tab(page)
+        except Exception:
+            pass
+        page = None
 
         rec = json.dumps({
             "email": email,
@@ -171,11 +191,6 @@ def _run(job):
         _set(job, status="failed", error=str(e))
         _log(job, f"GAGAL: {e}")
     finally:
-        try:
-            if signup and page:
-                signup.close_tab(page)
-        except Exception:
-            pass
         try:
             if signup:
                 signup.close()

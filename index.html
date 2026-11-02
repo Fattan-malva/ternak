@@ -931,14 +931,14 @@
       return cell;
     }
 
-    function addCopyCell(row, value, title = '') {
+    function addCopyCell(row, value, display = null, title = '') {
       const cell = document.createElement('td');
       const wrapper = document.createElement('div');
       const code = document.createElement('code');
       const button = document.createElement('button');
 
       wrapper.className = 'table-value';
-      code.textContent = value || '-';
+      code.textContent = (display !== null ? display : (value || '-')) || '-';
       if (title) code.title = title;
       button.type = 'button';
       button.className = 'subtle small';
@@ -979,7 +979,7 @@
           addTextCell(row, String(index + 1));
           addCopyCell(row, account.email || '');
           addCopyCell(row, account.password || '');
-          addCopyCell(row, token.length > 32 ? `${token.slice(0, 32)}...` : token, token);
+          addCopyCell(row, token, token.length > 32 ? `${token.slice(0, 32)}...` : token, token);
 
           const dateCell = addTextCell(row, account.created_at || '', 'date-value');
           dateCell.title = account.created_at || '';

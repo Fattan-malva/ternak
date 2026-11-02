@@ -22,7 +22,6 @@ tanpa perlu fokus omnibox (CDP menarget renderer, tidak bisa fokus omnibox
 secara langsung).
 """
 
-import base64
 import json
 import os
 import random
@@ -472,17 +471,6 @@ class DeepSeekSignup:
             time.sleep(self._rng.uniform(0.25, 0.8))
         self._pause(0.8, 1.6)
 
-    def _screenshot(self, page, path):
-        try:
-            res = page.cmd("Page.captureScreenshot", {"format": "png"}, timeout=15)
-            data = res.get("data")
-            if data:
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(data))
-                print(f"  [tab] Screenshot debug: {path}")
-        except Exception as error:
-            print(f"  [tab] Gagal screenshot: {error}")
-
     # ---------------------------------------------------------------- launch
     def launch_cdp(self):
         port = int(config.CDP_PORT or 9222)
@@ -534,7 +522,6 @@ class DeepSeekSignup:
             pass
 
         self._human_warmup(page)
-        self._screenshot(page, os.path.join(HERE, "debug_signup.png"))
 
         # Bersihkan token lama (hanya key spesifik) setelah render.
         try:
@@ -706,16 +693,46 @@ class DeepSeekSignup:
         try:
             token = page.evaluate(
                 """(() => {
-                  try {
-                    const raw = localStorage.getItem('userToken');
-                    if (raw) {
-                      try { const parsed = JSON.parse(raw); return (parsed && parsed.value) || raw; }
-                      catch (e) { return raw; }
-                    }
-                  } catch (e) {}
+                  const getVal = (v) => {
+                    if (!v || typeof v !== 'string') return '';
+                    try {
+                      const p = JSON.parse(v);
+                      if (p && typeof p === 'object') {
+                        // {"value": "eyJ...", "__version": "0"} -> ambil value-nya saja
+                        if (typeof p.value === 'string' && p.value.trim()) return p.value.trim();
+                        return ''; // {"value": null, ...} -> belum ada token
+                      }
+                    } catch (e) {}
+                    // string biasa (JWT) -> kembalikan apa adanya
+                    return v.trim();
+                  };
+                  // 1) userToken
+                  let t = getVal(localStorage.getItem('userToken'));
+                  if (t) return t;
+                  // 2) __appKit_userInfo
                   try {
                     const info = localStorage.getItem('__appKit_userInfo');
-                    if (info) { const parsed = JSON.parse(info); return parsed && parsed.token; }
+                    if (info) {
+                      const p = JSON.parse(info);
+                      const cand = p && (p.token || p.userToken || (p.user && p.user.token));
+                      if (typeof cand === 'string' && cand.trim()) return cand.trim();
+                    }
+                  } catch (e) {}
+                  // 3) scan semua key yang mengandung 'token'
+                  for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (!k || !/token/i.test(k)) continue;
+                    const v = getVal(localStorage.getItem(k));
+                    if (v && v.startsWith('eyJ')) return v;
+                  }
+                  // 4) sessionStorage
+                  try {
+                    for (let i = 0; i < sessionStorage.length; i++) {
+                      const k = sessionStorage.key(i);
+                      if (!k || !/token/i.test(k)) continue;
+                      const v = getVal(sessionStorage.getItem(k));
+                      if (v && v.startsWith('eyJ')) return v;
+                    }
                   } catch (e) {}
                   return '';
                 })()"""
@@ -734,6 +751,29 @@ class DeepSeekSignup:
                 return token
             time.sleep(1)
         return ""
+
+    # ---------------------------------------------------------------- cleanup
+    def signout(self, page):
+        """Logout dari DeepSeek: klik logout bila ada, bersihkan cookie sesi & storage."""
+        try:
+            btn = self._find_button_rect(page, r"log\s*out|keluar|sign\s*out")
+            if btn:
+                self._human_mouse_to(page, btn["x"], btn["y"])
+                page.click(btn["x"], btn["y"])
+                time.sleep(2)
+        except Exception:
+            pass
+        # Akhiri sesi server-side lewat cookie clearing (command sekali-pakai, tanpa enable domain).
+        try:
+            page.cmd("Network.clearBrowserCookies", {}, timeout=10)
+        except Exception:
+            pass
+        try:
+            page.evaluate(
+                """() => { try { localStorage.removeItem('userToken'); localStorage.removeItem('__appKit_userInfo'); sessionStorage.clear(); } catch(e) {} }"""
+            )
+        except Exception:
+            pass
 
     # ---------------------------------------------------------------- cleanup
     def close_tab(self, page):
@@ -778,4 +818,4 @@ def ensure_debug_chrome(port=None):
             time.sleep(3)
             return port
         time.sleep(1)
-    raise RuntimeError(f"Chrome debug port {port} tidak aktif setelah 60 detik.")
+    raise RuntimeError("Chrome debug port %d tidak aktif setelah 60 detik." % port)
