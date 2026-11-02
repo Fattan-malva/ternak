@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#09090b">
+  <title>DeepSeek Auto Signup</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #09090b;
+      --surface: #0f0f12;
+      --surface-raised: #141418;
+      --surface-hover: #1b1b20;
+      --border: #27272a;
+      --border-strong: #3f3f46;
+      --foreground: #fafafa;
+      --muted: #a1a1aa;
+      --subtle: #71717a;
+      --primary: #fafafa;
+      --primary-foreground: #18181b;
+      --blue: #3b82f6;
+      --blue-soft: #172554;
+      --green: #4ade80;
+      --green-soft: #10271b;
+      --red: #f87171;
+      --red-soft: #2b1518;
+      --amber: #fbbf24;
+      --amber-soft: #2c2110;
+      --radius: 9px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    *::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+
+    html {
+      min-width: 320px;
+      background: var(--background);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      display: inline-flex;
+      min-height: 34px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface-raised);
+      color: var(--foreground);
+      font-size: 12px;
+      font-weight: 550;
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--border-strong);
+      background: var(--surface-hover);
+    }
+
+    button:active:not(:disabled) {
+      background: #222228;
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    button.primary:hover:not(:disabled) {
+      border-color: #e4e4e7;
+      background: #e4e4e7;
+    }
+
+    button.danger {
+      border-color: #492327;
+      background: transparent;
+      color: var(--red);
+    }
+
+    button.danger:hover:not(:disabled) {
+      border-color: #71343b;
+      background: var(--red-soft);
+    }
+
+    button.subtle {
+      min-height: 28px;
+      padding: 0 8px;
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    button.subtle:hover:not(:disabled) {
+      border-color: var(--border);
+      background: var(--surface-hover);
+      color: var(--foreground);
+    }
+
+    button.small {
+      min-height: 27px;
+      padding: 0 8px;
+      font-size: 11px;
+    }
+
+    .page {
+      width: min(1120px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 34px 0 48px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 650;
+      letter-spacing: -.55px;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 9px;
+      flex-wrap: wrap;
+    }
+
+    .status {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      padding: 0 9px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .status[data-state="running"] {
+      border-color: #29477c;
+      background: var(--blue-soft);
+      color: #bfdbfe;
+    }
+
+    .status[data-state="ok"] {
+      border-color: #245338;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status[data-state="err"] {
+      border-color: #633039;
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .content {
+      display: grid;
+      gap: 16px;
+      padding-top: 20px;
+    }
+
+    .panel {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .panel-header {
+      display: flex;
+      min-height: 58px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-heading {
+      min-width: 0;
+    }
+
+    .panel-heading h2 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -.1px;
+    }
+
+    .panel-heading p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .panel-body {
+      padding: 16px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .step {
+      display: flex;
+      min-height: 34px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #111114;
+      color: var(--subtle);
+      font-size: 11px;
+      font-weight: 550;
+      text-align: center;
+      transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+
+    .step.active {
+      border-color: #315b9d;
+      background: var(--blue-soft);
+      color: #bfdbfe;
+    }
+
+    .step.done {
+      border-color: #245338;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .step.fail {
+      border-color: #633039;
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 16px;
+    }
+
+    .field {
+      display: grid;
+      min-width: 0;
+      gap: 6px;
+    }
+
+    .field label {
+      color: #d4d4d8;
+      font-size: 11px;
+      font-weight: 550;
+    }
+
+    .input-line {
+      display: flex;
+      min-width: 0;
+      gap: 7px;
+    }
+
+    .input-line input {
+      width: 100%;
+      min-width: 0;
+      height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      outline: none;
+      background: #09090b;
+      color: var(--foreground);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      transition: border-color 140ms ease;
+    }
+
+    .input-line input::placeholder {
+      color: #52525b;
+    }
+
+    .input-line input:focus {
+      border-color: #52525b;
+    }
+
+    .input-line input[readonly] {
+      color: #e4e4e7;
+    }
+
+    .log-wrap {
+      margin-top: 18px;
+    }
+
+    .log-label {
+      display: block;
+      margin-bottom: 7px;
+      color: #d4d4d8;
+      font-size: 11px;
+      font-weight: 550;
+    }
+
+    .log {
+      min-height: 112px;
+      max-height: 190px;
+      overflow: auto;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #09090b;
+      color: #a1a1aa;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .log-line {
+      min-height: 18px;
+    }
+
+    .log-line.ok {
+      color: var(--green);
+    }
+
+    .log-line.err {
+      color: var(--red);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .table-scroll {
+      width: 100%;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 11px;
+    }
+
+    thead {
+      background: #111114;
+    }
+
+    th {
+      height: 38px;
+      padding: 0 12px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td {
+      height: 46px;
+      padding: 7px 12px;
+      border-top: 1px solid #202024;
+      color: #d4d4d8;
+      vertical-align: middle;
+    }
+
+    tbody tr {
+      transition: background 120ms ease;
+    }
+
+    tbody tr:hover {
+      background: #141418;
+    }
+
+    .col-number { width: 54px; }
+    .col-email { width: 23%; }
+    .col-password { width: 18%; }
+    .col-token { width: 28%; }
+    .col-date { width: 18%; }
+    .col-action { width: 88px; }
+
+    .table-value {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .table-value code {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      color: #e4e4e7;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .table-value button {
+      flex: 0 0 auto;
+    }
+
+    .date-value {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empty {
+      height: 100px;
+      color: var(--subtle);
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 20;
+      max-width: min(360px, calc(100vw - 32px));
+      padding: 10px 13px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      background: #18181b;
+      color: var(--foreground);
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(7px);
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.ok {
+      border-color: #245338;
+    }
+
+    .toast.err {
+      border-color: #633039;
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        width: min(100% - 28px, 560px);
+        padding-top: 22px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .topbar-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .steps {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 5px;
+      }
+
+      .step {
+        min-height: 32px;
+        padding: 5px 3px;
+        font-size: 9px;
+      }
+
+      .field-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .panel-header,
+      .panel-body {
+        padding-right: 12px;
+        padding-left: 12px;
+      }
+
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .toolbar-actions {
+        width: 100%;
+      }
+
+      .toolbar-actions button {
+        flex: 1 1 auto;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .brand h1 {
+        font-size: 17px;
+      }
+
+      .topbar-right {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .topbar-right button,
+      .topbar-right .status {
+        width: 100%;
+      }
+
+      .steps {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <h1>DeepSeek Auto Signup</h1>
+        <p>Panel pengelolaan proses pembuatan akun</p>
+      </div>
+      <div class="topbar-right">
+        <span class="status" id="status" data-state="idle" role="status" aria-live="polite">Status: Siap</span>
+        <button class="primary" id="btn-new" type="button" onclick="openSignupPage()">Buat akun baru</button>
+        <button type="button" onclick="loadResults()">Refresh</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <section class="panel" aria-labelledby="progress-title">
+        <div class="panel-header">
+          <div class="panel-heading">
+            <h2 id="progress-title">Progres pembuatan</h2>
+            <p>Pantau tahapan proses dan data akun yang sedang berjalan</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="steps" id="steps" aria-label="Tahapan proses">
+            <span class="step" data-s="email">Email</span>
+            <span class="step" data-s="browser">Browser</span>
+            <span class="step" data-s="form">Form</span>
+            <span class="step" data-s="otp">OTP</span>
+            <span class="step" data-s="token">Token</span>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="email">Email VoltMail</label>
+              <div class="input-line">
+                <input id="email" type="text" readonly placeholder="Belum tersedia" autocomplete="off">
+                <button class="subtle" type="button" onclick="copyField('email')">Salin</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <div class="input-line">
+                <input id="password" type="text" readonly placeholder="Belum tersedia" autocomplete="off">
+                <button class="subtle" type="button" onclick="copyField('password')">Salin</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="otp">OTP</label>
+              <div class="input-line">
+                <input id="otp" type="text" readonly placeholder="Belum tersedia" autocomplete="off">
+                <button class="subtle" type="button" onclick="copyField('otp')">Salin</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="token">UserToken</label>
+              <div class="input-line">
+                <input id="token" type="text" readonly placeholder="Belum tersedia" autocomplete="off">
+                <button class="subtle" type="button" onclick="copyField('token')">Salin</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="log-wrap">
+            <label class="log-label" for="log">Aktivitas proses</label>
+            <div class="log" id="log" role="log" aria-live="polite">Menunggu perintah...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="results-title">
+        <div class="panel-header">
+          <div class="panel-heading">
+            <h2 id="results-title">Akun tersimpan</h2>
+            <p>Daftar akun dan token yang berhasil disimpan</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="toolbar">
+            <span class="count" id="count">0 akun tersimpan</span>
+            <div class="toolbar-actions">
+              <button type="button" onclick="copyAllTokens()">Salin semua token</button>
+              <button class="danger" type="button" onclick="deleteAll()">Hapus semua</button>
+              <button type="button" onclick="loadResults()">Refresh daftar</button>
+            </div>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table aria-label="Daftar akun tersimpan">
+            <colgroup>
+              <col class="col-number">
+              <col class="col-email">
+              <col class="col-password">
+              <col class="col-token">
+              <col class="col-date">
+              <col class="col-action">
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">No.</th>
+                <th scope="col">Email</th>
+                <th scope="col">Password</th>
+                <th scope="col">UserToken</th>
+                <th scope="col">Waktu</th>
+                <th scope="col">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="6" class="empty">Belum ada akun.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const API = '/api';
+    let running = false;
+    let poller = null;
+
+    function toast(message, type = 'ok') {
+      const element = document.getElementById('toast');
+      element.textContent = message;
+      element.className = `toast show ${type}`;
+      clearTimeout(element._timeout);
+      element._timeout = setTimeout(() => {
+        element.className = 'toast';
+      }, 2800);
+    }
+
+    function setStatus(message, state = 'idle') {
+      const element = document.getElementById('status');
+      element.textContent = `Status: ${message}`;
+      element.dataset.state = state;
+    }
+
+    function stepOrder(step) {
+      return ['email', 'browser', 'form', 'otp', 'token'].indexOf(step);
+    }
+
+    function updateSteps(step, status) {
+      const index = stepOrder(step);
+      document.querySelectorAll('.step').forEach((element, currentIndex) => {
+        element.classList.remove('done', 'active', 'fail');
+
+        if (status === 'failed') {
+          if (currentIndex <= index) element.classList.add('fail');
+        } else if (currentIndex < index) {
+          element.classList.add('done');
+        } else if (currentIndex === index) {
+          element.classList.add('active');
+        }
+      });
+
+      if (status === 'success') {
+        document.querySelectorAll('.step').forEach(element => {
+          element.classList.add('done');
+        });
+      }
+    }
+
+    function setField(id, value) {
+      const element = document.getElementById(id);
+      if (element && value !== undefined && value !== null) {
+        element.value = value;
+      }
+    }
+
+    async function copyText(value) {
+      if (!value) return;
+
+      try {
+        await navigator.clipboard.writeText(value);
+        toast('Berhasil disalin', 'ok');
+      } catch (error) {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+          const copied = document.execCommand('copy');
+          if (!copied) throw new Error('Clipboard tidak tersedia');
+          toast('Berhasil disalin', 'ok');
+        } catch (fallbackError) {
+          toast('Tidak dapat menyalin teks', 'err');
+        } finally {
+          textarea.remove();
+        }
+      }
+    }
+
+    function copyField(id) {
+      copyText(document.getElementById(id).value);
+    }
+
+    async function api(path, method = 'GET', body = null) {
+      const options = {
+        method,
+        headers: { 'Content-Type': 'application/json' }
+      };
+
+      if (body !== null) options.body = JSON.stringify(body);
+
+      const response = await fetch(API + path, options);
+      if (!response.ok) {
+        throw new Error(`Permintaan gagal (${response.status})`);
+      }
+      return response.json();
+    }
+
+    async function openSignupPage() {
+      const button = document.getElementById('btn-new');
+      button.disabled = true;
+      setStatus('Memulai proses pembuatan akun...', 'running');
+
+      try {
+        const result = await api('/start', 'POST');
+        if (result.error) throw new Error(result.error);
+        setStatus('Berjalan', 'running');
+        toast('Proses pembuatan akun dimulai', 'ok');
+        running = true;
+        pollJob();
+      } catch (error) {
+        setStatus(`Gagal: ${error.message}`, 'err');
+        toast(error.message, 'err');
+        running = false;
+        button.disabled = false;
+      }
+    }
+
+    function renderLog(lines) {
+      const element = document.getElementById('log');
+      element.replaceChildren();
+
+      (Array.isArray(lines) ? lines : []).forEach(entry => {
+        const line = document.createElement('div');
+        const message = String(entry ?? '');
+        line.className = 'log-line';
+
+        if (message.includes('GAGAL:')) {
+          line.classList.add('err');
+        } else if (message.includes('SELESAI')) {
+          line.classList.add('ok');
+        }
+
+        line.textContent = message;
+        element.appendChild(line);
+      });
+
+      element.scrollTop = element.scrollHeight;
+    }
+
+    function stopPolling() {
+      if (poller !== null) {
+        clearInterval(poller);
+        poller = null;
+      }
+    }
+
+    function finishJob() {
+      stopPolling();
+      running = false;
+      document.getElementById('btn-new').disabled = false;
+    }
+
+    function pollJob() {
+      if (poller !== null) return;
+
+      poller = setInterval(async () => {
+        try {
+          const data = await api('/status');
+          const job = data.job;
+
+          if (!job) {
+            finishJob();
+            setStatus('Siap', 'idle');
+            return;
+          }
+
+          setField('email', job.email);
+          setField('password', job.password);
+          setField('otp', job.otp);
+          setField('token', job.token);
+          renderLog(job.log);
+          updateSteps(job.step, job.status);
+
+          if (job.status === 'success') {
+            finishJob();
+            setStatus('Selesai', 'ok');
+            toast('Akun berhasil dibuat', 'ok');
+            loadResults();
+          } else if (job.status === 'failed') {
+            finishJob();
+            setStatus(`Gagal: ${job.error || 'Proses dihentikan'}`, 'err');
+            toast(job.error || 'Proses gagal', 'err');
+            loadResults();
+          } else {
+            setStatus(`Berjalan: ${job.step || 'Memproses'}`, 'running');
+          }
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+      }, 1500);
+    }
+
+    function addTextCell(row, value, className = '') {
+      const cell = document.createElement('td');
+      if (className) cell.className = className;
+      cell.textContent = value;
+      row.appendChild(cell);
+      return cell;
+    }
+
+    function addCopyCell(row, value, title = '') {
+      const cell = document.createElement('td');
+      const wrapper = document.createElement('div');
+      const code = document.createElement('code');
+      const button = document.createElement('button');
+
+      wrapper.className = 'table-value';
+      code.textContent = value || '-';
+      if (title) code.title = title;
+      button.type = 'button';
+      button.className = 'subtle small';
+      button.textContent = 'Salin';
+      button.disabled = !value;
+      button.addEventListener('click', () => copyText(value));
+
+      wrapper.append(code, button);
+      cell.appendChild(wrapper);
+      row.appendChild(cell);
+      return cell;
+    }
+
+    async function loadResults() {
+      try {
+        const data = await api('/results');
+        const rows = Array.isArray(data.results) ? data.results : [];
+        document.getElementById('count').textContent = `${rows.length} akun tersimpan`;
+
+        const tbody = document.getElementById('tbody');
+        tbody.replaceChildren();
+
+        if (rows.length === 0) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 6;
+          cell.className = 'empty';
+          cell.textContent = 'Belum ada akun.';
+          row.appendChild(cell);
+          tbody.appendChild(row);
+          return;
+        }
+
+        rows.forEach((account, index) => {
+          const row = document.createElement('tr');
+          const token = account.userToken || '';
+
+          addTextCell(row, String(index + 1));
+          addCopyCell(row, account.email || '');
+          addCopyCell(row, account.password || '');
+          addCopyCell(row, token.length > 32 ? `${token.slice(0, 32)}...` : token, token);
+
+          const dateCell = addTextCell(row, account.created_at || '', 'date-value');
+          dateCell.title = account.created_at || '';
+
+          const actionCell = document.createElement('td');
+          const deleteButton = document.createElement('button');
+          deleteButton.type = 'button';
+          deleteButton.className = 'danger small';
+          deleteButton.textContent = 'Hapus';
+          deleteButton.addEventListener('click', () => deleteRow(index));
+          actionCell.appendChild(deleteButton);
+          row.appendChild(actionCell);
+
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Load results error:', error);
+        toast('Gagal memuat daftar akun', 'err');
+      }
+    }
+
+    async function deleteRow(index) {
+      if (!confirm('Hapus akun ini dari daftar?')) return;
+
+      try {
+        const result = await api('/delete', 'POST', { index });
+        if (result.ok) {
+          toast('Akun berhasil dihapus', 'ok');
+          await loadResults();
+        } else {
+          toast('Gagal menghapus akun', 'err');
+        }
+      } catch (error) {
+        toast('Terjadi kesalahan saat menghapus akun', 'err');
+      }
+    }
+
+    async function deleteAll() {
+      if (!confirm('Hapus semua hasil akun yang tersimpan?')) return;
+
+      try {
+        const result = await api('/delete', 'POST', { all: true });
+        if (result.ok) {
+          toast('Semua akun berhasil dihapus', 'ok');
+          await loadResults();
+        } else {
+          toast('Gagal menghapus semua akun', 'err');
+        }
+      } catch (error) {
+        toast('Terjadi kesalahan saat menghapus akun', 'err');
+      }
+    }
+
+    async function copyAllTokens() {
+      try {
+        const data = await api('/results');
+        const tokens = (data.results || [])
+          .map(account => account.userToken)
+          .filter(Boolean)
+          .join('\n');
+
+        if (!tokens) {
+          toast('Tidak ada token untuk disalin', 'err');
+          return;
+        }
+
+        await copyText(tokens);
+      } catch (error) {
+        toast('Gagal mengambil token', 'err');
+      }
+    }
+
+    async function initialize() {
+      try {
+        const config = await (await fetch('/api/config')).json();
+        setField('password', config.password || '');
+      } catch (error) {
+        console.error('Config error:', error);
+      }
+
+      await loadResults();
+
+      try {
+        const status = await api('/status');
+        if (status.job && status.job.status !== 'success' && status.job.status !== 'failed') {
+          running = true;
+          document.getElementById('btn-new').disabled = true;
+          pollJob();
+        }
+      } catch (error) {
+        console.error('Initial status error:', error);
+      }
+    }
+
+    initialize();
+  </script>
+</body>
+</html>

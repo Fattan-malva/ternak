@@ -1,0 +1,9 @@
+{
+  "password": "GantiPasswordIni123!",
+  "otp_timeout": 180,
+  "token_timeout": 600,
+  "delay_min": 7,
+  "delay_max": 15,
+  "cdp_port": 9222,
+  "chrome_profile": "Default"
+}
